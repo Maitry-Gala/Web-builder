@@ -1,15 +1,16 @@
 import { type Request, type Response, type NextFunction } from "express";
 const jwtSecret = process.env.JWT_SECRET!;
 import jwt from "jsonwebtoken";
+import { prisma } from "../lib/prisma";
 
 interface JwtPayload {
   userId: string;
 }
 
-export const auth = (req: Request, res: Response, next: NextFunction) => {
+export const auth = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader) {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({
       message: "No token provided",
     });
@@ -24,16 +25,33 @@ export const auth = (req: Request, res: Response, next: NextFunction) => {
   }
 
   try {
-    const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
+    const isBlacklisted = await prisma.blacklistedToken.findUnique({
+      where: { token },
+    });
 
-    if (decoded) {
-      req.userId = decoded.userId;
-      next();
-    } else {
-      res.status(403).json({
-        message: "You are not logged in",
+    if (isBlacklisted) {
+      return res.status(401).json({
+        message: "Token invalidated, please login again",
       });
     }
+
+    const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select :{
+        id : true,
+      }
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "User no longer exists",
+      });
+    }
+
+    req.userId = decoded.userId;
+    next();
   } catch (e) {
     return res.status(403).json({
       message: "Invalid or expired token",
