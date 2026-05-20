@@ -1,29 +1,93 @@
-import { Request ,Response} from "express";
+import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { Prisma } from "../generated/prisma/browser";
+import OpenAI from "openai";
 
-type Websiteparams = {
-    id : string
-};
+const client = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY,
+  baseURL: "https://api.groq.com/openai/v1",
+});
 
 export const generateWebsite = async (req: Request, res: Response) => {
   const { businessName, businessType, description } = req.body;
 
   try {
-    // Mock AI response — swap this with real AI API call later
-    const generated = {
-      title: `${businessName} — Official Site`,
-      tagline: `Your trusted ${businessType} partner`,
-      about: `Welcome to ${businessName}. We are a ${businessType} company. ${description}`,
-      services: [
-        "Consultation",
-        "Implementation", 
-        "Support",
-      ],
-    };
+    const response = await client.responses.create({
+      model: "openai/gpt-oss-20b",
+      input: `
+      You  are a website content generator. Generate website content for a business.
+          
+        Business Name: ${businessName}
+        Business Type: ${businessType}
+        Description: ${description}
 
-    return res.status(200).json({
-      generated,
+        Respond ONLY with a valid JSON object, no markdown, no backticks, exactly like this:
+        {
+        "title": "website title here",
+        "tagline": "catchy tagline here",
+        "about": "about section paragraph here",
+        "services": ["service 1", "service 2", "service 3"]
+        }
+        `,
+      text: {
+        format: {
+          type: "json_object",
+        },
+      },
+    });
+    const content = response.output_text;
+
+    if(!content){
+        return res.status(500).json({
+             message: "Error occured while creating response from AI" 
+        });
+    }
+
+    try{
+        const generated = JSON.parse(content);
+        return res.status(200).json({ generated })
+
+    }catch(e){
+        return res.status(500).json({ 
+            message: "AI returned invalid response, please try again" 
+        });
+    }
+
+  } catch (e) {
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const createWebsite = async (req: Request, res: Response) => {
+  const {
+    businessName,
+    businessType,
+    description,
+    title,
+    tagline,
+    about,
+    services,
+  } = req.body;
+
+  try {
+    const website = await prisma.website.create({
+      data: {
+        userId: req.userId,
+        businessName,
+        businessType,
+        description,
+        title,
+        tagline,
+        about,
+        services,
+      },
+    });
+
+    return res.status(201).json({
+      message: "Website saved successfully",
+      website,
     });
   } catch (e) {
     return res.status(500).json({
@@ -32,150 +96,127 @@ export const generateWebsite = async (req: Request, res: Response) => {
   }
 };
 
+export const getWebsite = async (req: Request, res: Response) => {
+  const { id } = req.params as { id: string };
 
-export const createWebsite = async (req: Request,res : Response) => {
-    const { businessName, businessType, description, title, tagline, about, services } = req.body;
+  try {
+    const website = await prisma.website.findUnique({
+      where: { id },
+    });
 
-    try{
-        const website = await prisma.website.create({
-            data:{
-                userId: req.userId,
-                businessName,
-                businessType,
-                description,
-                title,
-                tagline,
-                about,
-                services,
-            },
-        });
-
-        return res.status(201).json({
-            message : "Website saved successfully",
-            website,
-        });
-    }catch(e){
-        return res.status(500).json({
-            message: "Something went wrong"
-        })
+    if (!website) {
+      return res.status(404).json({
+        message: "Website not found",
+      });
     }
+
+    if (website.userId !== req.userId) {
+      return res.status(403).json({
+        message: "Unauthorized",
+      });
+    }
+
+    return res.status(200).json({
+      website,
+    });
+  } catch (e) {
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
 };
 
-export const getWebsite = async (req: Request, res: Response) => {
-    const { id }  = req.params as {id : string};
+export const updateWebsite = async (req: Request, res: Response) => {
+  const { id } = req.params as { id: string };
+  const {
+    businessName,
+    businessType,
+    description,
+    title,
+    tagline,
+    about,
+    services,
+  } = req.body;
 
-    try{
-        const website = await prisma.website.findUnique({
-            where: { id },
-        });
+  try {
+    const existing = await prisma.website.findUnique({
+      where: { id },
+    });
 
-        if(!website) {
-            return res.status(404).json({
-                message : "Website not found"
-            });
-        }
-
-        if(website.userId !== req.userId) {
-            return res.status(403).json({
-                message : "Unauthorized"
-            });
-        }
-
-        return res.status(200).json({
-            website
-        })
-    }catch(e){
-        return res.status(500).json({
-            message: "Something went wrong"
-        });
+    if (!existing) {
+      return res.status(404).json({
+        message: "Website not found ",
+      });
     }
-}
 
-export const updateWebsite = async (req: Request, res : Response) => {
-    const {id} = req.params as {id : string};
-    const { businessName, businessType, description, title, tagline, about, services } = req.body;
-
-    try{
-        const existing = await prisma.website.findUnique({
-            where : { id },
-        });
-
-        if(!existing) {
-            return res.status(404).json({
-                message : "Website not found "
-            });
-        }
-
-        if(existing.userId !== req.userId){
-            return res.status(403).json({
-                message : "Unauthorized"
-            });
-        }
-
-        const data : Prisma.WebsiteUpdateInput = {};
-        if(businessName) data.businessName = businessName;
-        if (businessType) data.businessType = businessType;
-        if (description)  data.description  = description;
-        if (title)        data.title        = title;
-        if (tagline)      data.tagline      = tagline;
-        if (about)        data.about        = about;
-        if (services)     data.services     = services;
-
-        const website = await prisma.website.update({
-            where: { id},
-            data,
-        });
-
-        return res.status(200).json({
-            message : "Website updated successfully",
-        });
-
-    }catch(e){
-        return res.status(500).json({
-            message : "Something went wrong"
-        });
+    if (existing.userId !== req.userId) {
+      return res.status(403).json({
+        message: "Unauthorized",
+      });
     }
+
+    const data: Prisma.WebsiteUpdateInput = {};
+    if (businessName) data.businessName = businessName;
+    if (businessType) data.businessType = businessType;
+    if (description) data.description = description;
+    if (title) data.title = title;
+    if (tagline) data.tagline = tagline;
+    if (about) data.about = about;
+    if (services) data.services = services;
+
+    const website = await prisma.website.update({
+      where: { id },
+      data,
+    });
+
+    return res.status(200).json({
+      message: "Website updated successfully",
+    });
+  } catch (e) {
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
 };
 
 export const deleteWebsite = async (req: Request, res: Response) => {
-    const  { id } = req.params as {id : string};
+  const { id } = req.params as { id: string };
 
-    try{
-        const existing = await prisma.website.findUnique({
-            where : { id },
-        });
+  try {
+    const existing = await prisma.website.findUnique({
+      where: { id },
+    });
 
-        if(!existing) {
-            return res.status(404).json({
-                message : "Website not found "
-            });
-        }
-
-        if(existing.userId !== req.userId){
-            return res.status(403).json({
-                message : "Unauthorized"
-            });
-        }
-
-        await prisma.website.delete({
-            where: { id },
-        });
-
-        return res.status(200).json({
-            message : "Website deleted successfully"
-        });
-
-    }catch(e){
-        return res.status(500).json({
-            message : "Something went wrong"
-        });
+    if (!existing) {
+      return res.status(404).json({
+        message: "Website not found ",
+      });
     }
-}
+
+    if (existing.userId !== req.userId) {
+      return res.status(403).json({
+        message: "Unauthorized",
+      });
+    }
+
+    await prisma.website.delete({
+      where: { id },
+    });
+
+    return res.status(200).json({
+      message: "Website deleted successfully",
+    });
+  } catch (e) {
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+};
 
 export const getWebsites = async (req: Request, res: Response) => {
-  const page  = parseInt(req.query.page as string) || 1;
+  const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
-  const skip  = (page - 1) * limit;
+  const skip = (page - 1) * limit;
 
   try {
     // Run both queries in parallel for performance
@@ -183,12 +224,12 @@ export const getWebsites = async (req: Request, res: Response) => {
       prisma.website.findMany({
         where: { userId: req.userId },
         select: {
-          id:           true,
-          title:        true,
-          tagline:      true,
+          id: true,
+          title: true,
+          tagline: true,
           businessName: true,
           businessType: true,
-          createdAt:    true,
+          createdAt: true,
           // skip about/services/description in list — load those in single view
         },
         orderBy: { createdAt: "desc" },
