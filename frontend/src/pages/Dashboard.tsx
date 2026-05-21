@@ -1,65 +1,44 @@
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import { useEffect, useState } from "react";
-import api from "../api/axios";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { useAuth } from "../context/AuthContext";
 
-interface Website {
-  id: string;
-  title: string;
-  businessName: string;
-  businessType: string;
-  createdAt: string;
-}
-
-interface Pagination {
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-}
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const {
+    user,
+    logout,
+    websites,
+    pagination,
+    websitesLoading,
+    fetchWebsites,
+    deleteWebsite,
+    websitesFetched,
+  } = useAuth();
 
-  const [websites, setWebsites] = useState<Website[]>([]);
-  const [pagination, setPagination] = useState<Pagination | null>(null);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const fetchWebsite = async (currentPage: number) => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api.get(`/websites?page=${currentPage}&limit=10`);
-      setWebsites(res.data.websites);
-      setPagination(res.data.pagination);
-    } catch (e) {
-      setError("Failed o load  websites. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Only fetch on page change — context caches first load
   useEffect(() => {
-    fetchWebsite(page);
-  }, [page]);
+    if(websitesFetched && page === 1) return;
+    fetchWebsites(page).catch(() => {
+      toast.error("Failed to load websites");
+    });
+  }, [page,websitesFetched]);
 
   const handleDelete = async (id: string) => {
     const confirmed = window.confirm(
-      "Are you sure you want to delete this website?",
+      "Are you sure you want to delete this website?"
     );
-    if (confirmed) return;
+    if (!confirmed) return;
 
     setDeletingId(id);
     try {
-      await api.delete("/websites/${id}");
-      fetchWebsite(page);
+      await deleteWebsite(id);
+      toast.success("Website deleted successfully");
     } catch (e) {
-      alert("Failed to delete. Please try again.");
+      toast.error("Failed to delete. Please try again.");
     } finally {
       setDeletingId(null);
     }
@@ -71,7 +50,7 @@ export default function Dashboard() {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("en-Us", {
+    return new Date(dateStr).toLocaleDateString("en-US", {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -79,7 +58,7 @@ export default function Dashboard() {
   };
 
   return (
- <div style={styles.page}>
+    <div style={styles.page}>
       {/* Navbar */}
       <nav style={styles.nav}>
         <h2 style={styles.logo}>WebGen</h2>
@@ -91,14 +70,14 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      {/* Main */}
       <main style={styles.main}>
         {/* Header */}
         <div style={styles.header}>
           <div>
             <h1 style={styles.title}>My Websites</h1>
             <p style={styles.subtitle}>
-              {pagination?.total ?? 0} website{pagination?.total !== 1 ? "s" : ""} generated
+              {pagination?.total ?? 0} website
+              {pagination?.total !== 1 ? "s" : ""} generated
             </p>
           </div>
           <button
@@ -109,16 +88,12 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Error */}
-        {error && <div style={styles.errorBox}>{error}</div>}
-
         {/* Loading */}
-        {loading ? (
+        {websitesLoading ? (
           <div style={styles.centered}>
             <p style={styles.mutedText}>Loading websites...</p>
           </div>
         ) : websites.length === 0 ? (
-          // Empty state
           <div style={styles.emptyState}>
             <p style={styles.emptyTitle}>No websites yet</p>
             <p style={styles.emptySubtitle}>
@@ -141,7 +116,9 @@ export default function Dashboard() {
                     <th style={styles.th}>Website Name</th>
                     <th style={styles.th}>Business Type</th>
                     <th style={styles.th}>Created</th>
-                    <th style={{ ...styles.th, textAlign: "right" }}>Actions</th>
+                    <th style={{ ...styles.th, textAlign: "right" }}>
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -150,30 +127,39 @@ export default function Dashboard() {
                       key={website.id}
                       style={{
                         ...styles.tableRow,
-                        backgroundColor: index % 2 === 0 ? "#ffffff" : "#f8fafc",
+                        backgroundColor:
+                          index % 2 === 0 ? "#ffffff" : "#f8fafc",
                       }}
                     >
                       <td style={styles.td}>
                         <p style={styles.websiteName}>{website.title}</p>
-                        <p style={styles.businessName}>{website.businessName}</p>
+                        <p style={styles.businessName}>
+                          {website.businessName}
+                        </p>
                       </td>
                       <td style={styles.td}>
                         <span style={styles.badge}>{website.businessType}</span>
                       </td>
                       <td style={styles.td}>
-                        <p style={styles.mutedText}>{formatDate(website.createdAt)}</p>
+                        <p style={styles.mutedText}>
+                          {formatDate(website.createdAt)}
+                        </p>
                       </td>
                       <td style={{ ...styles.td, textAlign: "right" }}>
                         <div style={styles.actions}>
                           <button
                             style={styles.viewBtn}
-                            onClick={() => navigate(`/dashboard/website/${website.id}`)}
+                            onClick={() =>
+                              navigate(`/dashboard/website/${website.id}`)
+                            }
                           >
                             View
                           </button>
                           <button
                             style={styles.editBtn}
-                            onClick={() => navigate(`/dashboard/edit/${website.id}`)}
+                            onClick={() =>
+                              navigate(`/dashboard/edit/${website.id}`)
+                            }
                           >
                             Edit
                           </button>
@@ -209,9 +195,10 @@ export default function Dashboard() {
                 >
                   ← Prev
                 </button>
-
-                {/* Page numbers */}
-                {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((p) => (
+                {Array.from(
+                  { length: pagination.totalPages },
+                  (_, i) => i + 1
+                ).map((p) => (
                   <button
                     key={p}
                     style={{
@@ -223,7 +210,6 @@ export default function Dashboard() {
                     {p}
                   </button>
                 ))}
-
                 <button
                   style={{
                     ...styles.pageBtn,
@@ -251,8 +237,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "Inter, sans-serif",
     color: "#0f172a",
   },
-
-  // Navbar
   nav: {
     background: "#ffffff",
     borderBottom: "1px solid #e5e7eb",
@@ -287,8 +271,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
     cursor: "pointer",
   },
-
-  // Main
   main: {
     maxWidth: "1100px",
     margin: "0 auto",
@@ -320,19 +302,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     cursor: "pointer",
   },
-
-  // Error
-  errorBox: {
-    background: "#fff1f1",
-    border: "1px solid #fecaca",
-    color: "#dc2626",
-    padding: "12px 16px",
-    borderRadius: "12px",
-    fontSize: "14px",
-    marginBottom: "24px",
-  },
-
-  // Empty state
   emptyState: {
     textAlign: "center",
     padding: "80px 20px",
@@ -351,8 +320,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#64748b",
     marginBottom: "8px",
   },
-
-  // Table
   tableWrapper: {
     background: "#ffffff",
     border: "1px solid #e5e7eb",
@@ -378,7 +345,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tableRow: {
     borderBottom: "1px solid #f1f5f9",
-    transition: "background 0.15s",
   },
   td: {
     padding: "16px 20px",
@@ -407,8 +373,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "13px",
     color: "#94a3b8",
   },
-
-  // Actions
   actions: {
     display: "flex",
     gap: "8px",
@@ -444,8 +408,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
     cursor: "pointer",
   },
-
-  // Pagination
   pagination: {
     display: "flex",
     justifyContent: "center",
