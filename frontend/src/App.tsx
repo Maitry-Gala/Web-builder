@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Generate from "./pages/Generate";
 import WebsiteEdit from "./pages/WebsiteEdit";
 import WebsiteView from "./pages/WebsiteView";
+import PublicWebsiteView from "./pages/PublicWebsiteView";
 
 function App() {
   return (
@@ -53,6 +54,8 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          <Route path="/site/:id" element={<PublicWebsiteView />} />
 
           <Route path="*" element={<Landing />} />
         </Routes>

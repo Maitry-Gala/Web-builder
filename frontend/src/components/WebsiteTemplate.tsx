@@ -10,7 +10,7 @@ export default function WebsiteTemplate({
   title,
   tagline,
   about,
-  services,
+  services = [],
   businessName,
 }: Props) {
   return (

@@ -256,3 +256,34 @@ export const getWebsites = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Something went wrong" });
   }
 };
+
+export const getPublicWebsite = async (req: Request, res: Response) => {
+  const { id } = req.params as { id: string };
+
+  try{
+    const website = await prisma.website.findUnique({
+      where: { id },
+      select: {
+        title: true,
+        tagline: true,
+        about: true,
+        services: true,
+        businessName: true,
+        businessType: true,
+      },
+    });
+
+    if(!website) {
+      return res.status(404).json({
+        message: "Website not found"
+      });
+    }
+    return res.status(200).json({
+      website
+    });
+  }catch (e) {
+    return res.status(500).json({
+      message: "Something went wrong"
+    });
+  }
+};

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../api/axios";
 import WebsiteTemplate from "../components/WebsiteTemplate";
+import { toast } from "react-hot-toast";
 
 interface Website {
   id: string;
@@ -22,6 +23,7 @@ export default function WebsiteView() {
   const [website, setWebsite] = useState<Website | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const shareUrl = `${window.location.origin}/site/${id}`;
 
   useEffect(() => {
     const fetchWebsite = async () => {
@@ -93,19 +95,28 @@ export default function WebsiteView() {
           <button style={styles.backBtn} onClick={() => navigate("/dashboard")}>
             ← Back to Dashboard
           </button>
+          <button
+            style={styles.shareBtn}
+            onClick={() => {
+              navigator.clipboard.writeText(shareUrl);
+              toast.success("Link copied to clipboard!");
+            }}
+          >
+            Share
+          </button>
         </div>
       </nav>
 
       {/* Website Template */}
       {website && (
         <div style={{ padding: "32px", maxWidth: "1100px", margin: "0 auto" }}>
-        <WebsiteTemplate
-          title={website.title}
-          tagline={website.tagline}
-          about={website.about}
-          services={website.services}
-          businessName={website.businessName}
-        />
+          <WebsiteTemplate
+            title={website.title}
+            tagline={website.tagline}
+            about={website.about}
+            services={website.services}
+            businessName={website.businessName}
+          />
         </div>
       )}
     </div>
@@ -138,6 +149,16 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "12px",
   },
   editBtn: {
+    background: "#4a90ac",
+    color: "#fff",
+    border: "none",
+    padding: "8px 16px",
+    borderRadius: "10px",
+    fontSize: "13px",
+    fontWeight: 500,
+    cursor: "pointer",
+  },
+   shareBtn: {
     background: "#4a90ac",
     color: "#fff",
     border: "none",
