@@ -5,6 +5,7 @@ import { cleanupExpiredToken } from "./lib/cleanup";
 import websiteRouter from "./routes/website.routes";
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 app.use(cors({
     origin: "http://localhost:5173", // your React app URL
@@ -27,7 +28,7 @@ app.use("/api/v1/auth",userRouter);
 app.use("/api/v1/websites",websiteRouter);
 
 
-app.listen(3000, () => {
+app.listen(PORT, () => {
     console.log("Server running on http://localhost:3000");
 
     cleanupExpiredToken();
