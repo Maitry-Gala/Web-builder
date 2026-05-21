@@ -5,8 +5,15 @@ import { cleanupExpiredToken } from "./lib/cleanup";
 import websiteRouter from "./routes/website.routes";
 
 const app = express();
+
+app.use(cors({
+    origin: "http://localhost:5173", // your React app URL
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+}))
+
 app.use(express.json());
-app.use(cors())
 
 app.use("/api/v1/auth",userRouter);
 app.use("/api/v1/websites",websiteRouter);

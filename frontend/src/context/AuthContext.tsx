@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       try {
-        const res = await api.get("/auth/user/me");
+        const res = await api.get("/auth/me");
         setUser(res.data.user);
       } catch (e) {
         localStorage.removeItem("token");
@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
-      await api.post("/auth/users/logout");
+      await api.post("/auth/logout");
     } finally {
       localStorage.removeItem("token");
       setToken(null);
